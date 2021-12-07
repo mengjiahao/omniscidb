@@ -59,6 +59,7 @@ void SqliteConnector::throwError() {
 
 std::string get_column_datum(int column_type, sqlite3_stmt* stmt, size_t column_index) {
   const char* datum_ptr;
+  // sqlite内只存string类型。
   if (column_type == SQLITE_BLOB) {
     datum_ptr = static_cast<const char*>(sqlite3_column_blob(stmt, column_index));
   } else {
@@ -68,6 +69,10 @@ std::string get_column_datum(int column_type, sqlite3_stmt* stmt, size_t column_
   return {datum_ptr, datum_size};
 }
 
+/**
+ * prepare stmt参数只用string类型。
+ * 
+ */
 void SqliteConnector::query_with_text_params(const std::string& queryString,
                                              const std::vector<std::string>& text_params,
                                              const std::vector<BindType>& bind_types) {
@@ -109,6 +114,7 @@ void SqliteConnector::query_with_text_params(const std::string& queryString,
       throwError();
     }
     if (returnCode == SQLITE_DONE) {
+      // SQLITE_ROW 1 -> SQLITE_ROW 2 -> ... -> SQLITE_DONE.
       break;
     }
     if (atFirstResult_) {
@@ -121,6 +127,7 @@ void SqliteConnector::query_with_text_params(const std::string& queryString,
       atFirstResult_ = false;
     }
     numRows_++;
+    // ResultSet使用列存。
     for (size_t c = 0; c < numCols_; ++c) {
       auto column_type = sqlite3_column_type(stmt, c);
       bool is_null = (column_type == SQLITE_NULL);

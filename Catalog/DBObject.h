@@ -51,6 +51,10 @@ enum DBObjectType {
 std::string DBObjectTypeToString(DBObjectType type);
 DBObjectType DBObjectTypeFromString(const std::string& type);
 
+/**
+ * @brief (permissionType, dbId, objectId). 可进行大小比较排序。
+ * 
+ */
 struct DBObjectKey {
   int32_t permissionType = -1;
   int32_t dbId = -1;
@@ -131,6 +135,11 @@ struct ServerPrivileges {
   static const int32_t SERVER_USAGE = 1 << 3;
 };
 
+/**
+ * @brief 每类权限用int64_t存储，每种类型权限最大有64个权限。
+ * 权限分类: database/table/dashboard/view/server.
+ * 
+ */
 struct AccessPrivileges {
   int64_t privileges;
 
@@ -193,6 +202,9 @@ struct AccessPrivileges {
   static const AccessPrivileges SERVER_USAGE;
 };
 
+/**
+ * @brief 权限数据，包含DBObjectKey与AccessPrivileges。
+ */
 class DBObject {
  public:
   DBObject(const std::string& name, const DBObjectType& objectAndPermissionType);

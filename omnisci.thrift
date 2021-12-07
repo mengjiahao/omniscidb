@@ -61,6 +61,7 @@ struct TStringValue {
   2: bool is_null;
 }
 
+/** Column Meta Data **/ 
 struct TColumnType {
   1: string col_name;
   2: common.TTypeInfo col_type;
@@ -552,6 +553,7 @@ service OmniSci {
   TSessionId clone_session(1: TSessionId session) throws(1: TOmniSciException e)
   TServerStatus get_server_status(1: TSessionId session) throws (1: TOmniSciException e)
   list<TServerStatus> get_status(1: TSessionId session) throws (1: TOmniSciException e)
+  # catalog
   TClusterHardwareInfo get_hardware_info(1: TSessionId session) throws (1: TOmniSciException e)
   list<string> get_tables(1: TSessionId session) throws (1: TOmniSciException e)
   list<string> get_tables_for_database(1: TSessionId session, 2: string database_name) throws (1: TOmniSciException e)

@@ -131,7 +131,7 @@ struct UserMetadata {
 
 /*
  * @type DBMetadata
- * @brief metadata for a database
+ * @brief metadata for a database mapd_databases.
  */
 struct DBMetadata {
   DBMetadata() : dbId(0), dbOwner(0) {}
@@ -323,6 +323,8 @@ class SysCatalog : private CommonFileOperations {
   // users or roles.
   std::set<std::string> getCreatedRoles() const;
   bool isAggregator() const { return aggregator_; }
+
+  // 单例模式。
   static SysCatalog& instance() {
     if (!instance_) {
       instance_.reset(new SysCatalog());
@@ -487,6 +489,7 @@ class SysCatalog : private CommonFileOperations {
   static std::unique_ptr<SysCatalog> instance_;
 
  public:
+  // sys_sqlite_lock 使用。
   mutable std::mutex sqliteMutex_;
   mutable mapd_shared_mutex sharedMutex_;
   mutable std::atomic<std::thread::id> thread_holding_sqlite_lock;

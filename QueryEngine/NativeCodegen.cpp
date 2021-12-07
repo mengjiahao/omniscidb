@@ -454,6 +454,7 @@ ExecutionEngineWrapper CodeGenerator::generateNativeCPUCode(
   auto init_err = llvm::InitializeNativeTarget();
   CHECK(!init_err);
 
+  // 这里初始化 LLVM JIT.
   llvm::InitializeAllTargetMCs();
   llvm::InitializeNativeTargetAsmPrinter();
   llvm::InitializeNativeTargetAsmParser();

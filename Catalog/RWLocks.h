@@ -44,6 +44,7 @@ class read_lock {
     std::thread::id tid = std::this_thread::get_id();
 
     if (cat->thread_holding_write_lock != tid && !inner_type::thread_holds_read_lock) {
+      // sharedMutex_上读锁。thread_holds_read_lock是个thread_local
       lock = mapd_shared_lock<mapd_shared_mutex>(cat->sharedMutex_);
       inner_type::thread_holds_read_lock = true;
       holds_lock = true;
@@ -64,6 +65,11 @@ class read_lock {
   }
 };
 
+/**
+ * @brief 
+ * 意思是 先 rlock sharedMutex_ wlock sqliteMutex_. 
+ * 读锁先加，如果同时有多个读锁成功，unlock后是其他有读锁的线程开始lock_catalog，这样比写锁优先级高。
+ */
 template <typename T>
 class sqlite_lock {
   // always obtain a read lock on catalog first
@@ -78,6 +84,7 @@ class sqlite_lock {
     std::thread::id tid = std::this_thread::get_id();
 
     if (cat->thread_holding_sqlite_lock != tid) {
+      // 最终是为了给sqliteMutex_上互斥锁。
       lock = std::unique_lock<std::mutex>(cat->sqliteMutex_);
       cat->thread_holding_sqlite_lock = tid;
       holds_lock = true;
@@ -113,6 +120,8 @@ class write_lock {
     std::thread::id tid = std::this_thread::get_id();
 
     if (cat->thread_holding_write_lock != tid) {
+      // 线程不同则给cat->sharedMutex_上写锁，进入写锁临界区的将线程id记录在cat->thread_holding_write_lock内。
+      // 写锁可递归。
       lock = mapd_unique_lock<mapd_shared_mutex>(cat->sharedMutex_);
       cat->thread_holding_write_lock = tid;
       holds_lock = true;

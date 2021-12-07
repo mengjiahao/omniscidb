@@ -19,6 +19,7 @@
 
 #include <shared_mutex>
 
+// 读写锁
 #ifdef HAVE_FOLLY
 #include <folly/SharedMutex.h>
 using mapd_shared_mutex = folly::SharedMutex;
@@ -28,6 +29,7 @@ using mapd_shared_mutex = folly::SharedMutex;
 using mapd_shared_mutex = std::shared_timed_mutex;
 #endif  // HAVE_FOLLY
 
+// C++17起读写锁，共享读者用shared_lock，独占写者用unique_lock。
 #define mapd_lock_guard std::lock_guard
 #define mapd_unique_lock std::unique_lock
 #define mapd_shared_lock std::shared_lock

@@ -105,6 +105,10 @@ using SessionMap = std::map<TSessionId, std::shared_ptr<Catalog_Namespace::Sessi
 using PermissionFuncPtr = bool (*)(const AccessPrivileges&, const TDBObjectPermissions&);
 using query_state::QueryStateProxy;
 
+/**
+ * @brief 
+ * TSever -> TProcesser -> TProtocol -> TTransport
+ */
 class TrackingProcessor : public OmniSciProcessor {
  public:
   TrackingProcessor(std::shared_ptr<OmniSciIf> handler, const bool check_origin)
@@ -156,6 +160,7 @@ namespace File_Namespace {
 struct DiskCacheConfig;
 }
 
+// 实现 omnisci.thrift 内 OmniSci service.
 class DBHandler : public OmniSciIf {
  public:
   DBHandler(const std::vector<LeafHostInfo>& db_leaves,

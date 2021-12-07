@@ -177,7 +177,10 @@ std::vector<std::string> DBObject::toString() const {
   }
   return objectKey;
 }
-
+/**
+ * @brief 从SysCatalog数据库加载数据到DBObject。
+ * 
+ */
 void DBObject::loadKey() {
   CHECK(objectType_ == DatabaseDBObjectType);
   if (!getName().empty()) {

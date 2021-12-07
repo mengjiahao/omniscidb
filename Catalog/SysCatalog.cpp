@@ -99,6 +99,7 @@ std::filesystem::path copy_catalog_if_read_only(std::filesystem::path base_data_
     std::filesystem::create_directories(catalog_base_data_path);
 
     // Make the temporary copy of the catalog.
+    // Data is persisted using a SQLite database at <path_to_db/mapd_catalogs/omnisci_system_catalog>.
     const auto normal_catalog_path = base_data_path / "mapd_catalogs";
     const auto temporary_catalog_path = catalog_base_data_path / "mapd_catalogs";
     LOG(INFO) << "copying catalog from " << normal_catalog_path << " to "
@@ -210,6 +211,10 @@ SysCatalog::~SysCatalog() {
   cat_map_.clear();
 }
 
+/**
+ * @brief 在sqlite中创建SysCatalog数据表。
+ * 
+ */
 void SysCatalog::initDB() {
   sys_sqlite_lock sqlite_lock(this);
   sqliteConnector_->query("BEGIN TRANSACTION");
@@ -229,6 +234,7 @@ void SysCatalog::initDB() {
     sqliteConnector_->query(
         "CREATE TABLE mapd_roles(roleName text, userName text, UNIQUE(roleName, "
         "userName))");
+    // mapd_object_permissions objectOwnerId 没有外引用。
     sqliteConnector_->query(
         "CREATE TABLE mapd_object_permissions ("
         "roleName text, "
@@ -404,6 +410,11 @@ void deleteObjectPrivileges(std::unique_ptr<SqliteConnector>& sqliteConnector,
                                std::to_string(key.objectId)});
 }
 
+/**
+ * @brief 更新 mapd_object_permissions db.
+ * 
+ * @param object DBObject
+ */
 void insertOrUpdateObjectPrivileges(std::unique_ptr<SqliteConnector>& sqliteConnector,
                                     std::string roleName,
                                     bool userRole,
@@ -1381,6 +1392,10 @@ bool SysCatalog::checkPasswordForUser(const std::string& passwd,
   return checkPasswordForUserImpl(passwd, name, user);
 }
 
+/**
+ * @brief 直接从sqlite读取UserMetadata进行比较。
+ * 
+ */
 bool SysCatalog::checkPasswordForUserImpl(const std::string& passwd,
                                           std::string& name,
                                           UserMetadata& user) {
@@ -1564,6 +1579,7 @@ void SysCatalog::getMetadataWithDefaultDB(std::string& dbname,
   }
 }
 
+// 从sqlite中将 mapd_databases 中数据读出来存入 DBMetadata。
 bool SysCatalog::getMetadataForDB(const string& name, DBMetadata& db) {
   sys_read_lock read_lock(this);
   sys_sqlite_lock sqlite_lock(this);
@@ -2050,10 +2066,13 @@ void SysCatalog::grantRoleBatch_unsafe(const std::vector<std::string>& roles,
   }
 }
 
-// GRANT ROLE payroll_dept_role TO joe;
+/** GRANT ROLE payroll_dept_role TO joe;
+ * 更新granteeMap_以及mapd_roles db.
+ */
 void SysCatalog::grantRole_unsafe(const std::string& roleName,
                                   const std::string& granteeName,
                                   const bool is_temporary) {
+  // 都是从granteeMap_获取Role/User
   auto* rl = getRoleGrantee(roleName);
   if (!rl) {
     throw runtime_error("Request to grant role " + roleName +
@@ -2232,6 +2251,10 @@ bool SysCatalog::hasAnyPrivileges(const UserMetadata& user,
   return true;
 }
 
+/**
+ * @brief 从Grantee检查是否有权限，速度比db快。
+ * 
+ */
 bool SysCatalog::checkPrivileges(const UserMetadata& user,
                                  const std::vector<DBObject>& privObjects) const {
   sys_read_lock read_lock(this);
@@ -2269,6 +2292,7 @@ Grantee* SysCatalog::getGrantee(const std::string& name) const {
   if (grantee == granteeMap_.end()) {  // check to make sure role exists
     return nullptr;
   }
+  // granteeMap_ 内是unique_ptr返回普通指针。
   return grantee->second.get();  // returns pointer to role
 }
 
@@ -2404,6 +2428,10 @@ std::set<std::string> SysCatalog::getCreatedRoles() const {
   return roles;
 }
 
+/**
+ * @brief 从mapd_object_permissions db中查询构建User/Role granteeMap_。
+ * 
+ */
 void SysCatalog::buildRoleMap() {
   sys_write_lock write_lock(this);
   sys_sqlite_lock sqlite_lock(this);
@@ -2440,6 +2468,7 @@ void SysCatalog::buildRoleMap() {
 
     auto* rl = getGrantee(roleName);
     if (!rl) {
+      // 加入User/Role到granteeMap_。
       std::unique_ptr<Grantee> g;
       if (userPrivateRole) {
         g.reset(new User(roleName));
@@ -2476,10 +2505,15 @@ void SysCatalog::populateRoleDbObjects(const std::vector<DBObject>& objects) {
   sqliteConnector_->query("END TRANSACTION");
 }
 
+/**
+ * @brief 
+ * 
+ */
 void SysCatalog::buildUserRoleMap() {
   sys_write_lock write_lock(this);
   sys_sqlite_lock sqlite_lock(this);
   std::vector<std::pair<std::string, std::string>> granteeRoles;
+  // mapd_roles 关联 mapd_users 与 mapd_object_permissions 2张表。
   string userRoleQuery("SELECT roleName, userName from mapd_roles");
   sqliteConnector_->query(userRoleQuery);
   size_t numRows = sqliteConnector_->getNumRows();
@@ -2522,6 +2556,10 @@ void SysCatalog::buildUserRoleMap() {
   }
 }
 
+/**
+ * @brief 从 mapd_object_permissions db构建内存态objectDescriptorMap_.
+ * 
+ */
 void SysCatalog::buildObjectDescriptorMap() {
   sys_write_lock write_lock(this);
   sys_sqlite_lock sqlite_lock(this);
@@ -2548,6 +2586,14 @@ void SysCatalog::buildObjectDescriptorMap() {
   }
 }
 
+/**
+ * @brief 执行sqlite事务。
+ * 
+ * @tparam F 
+ * @tparam Args 
+ * @param f 可以是类的成员函数
+ * @param args 
+ */
 template <typename F, typename... Args>
 void SysCatalog::execInTransaction(F&& f, Args&&... args) {
   sys_write_lock write_lock(this);

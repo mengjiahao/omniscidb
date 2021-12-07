@@ -29,6 +29,10 @@
 class User;
 class Role;
 
+/**
+ * @brief 父类Grantee有多个Role，Role可能有多个Grantee，因此权限是个递归树。
+ * 
+ */
 class Grantee {
   using DBObjectMap = std::map<DBObjectKey, std::unique_ptr<DBObject>>;
 
@@ -65,6 +69,7 @@ class Grantee {
 
  protected:
   std::string name_;
+  // Grantee 跟踪有多个角色。
   std::unordered_set<Role*> roles_;
   // tracks all privileges, including privileges from granted roles recursively
   DBObjectMap effectivePrivileges_;
@@ -78,6 +83,10 @@ class User : public Grantee {
   bool isUser() const override { return true; }
 };
 
+/**
+ * @brief Role可能有多个Grantee。
+ * 
+ */
 class Role : public Grantee {
  public:
   Role(const std::string& name) : Grantee(name) {}

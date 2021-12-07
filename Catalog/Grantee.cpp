@@ -34,6 +34,10 @@ Grantee::~Grantee() {
   roles_.clear();
 }
 
+/**
+ * @brief 递归获取所有Role。
+ * 
+ */
 std::vector<std::string> Grantee::getRoles(bool only_direct) const {
   std::set<std::string> roles;  // Sorted for human readers.
   std::stack<const Grantee*> g;
@@ -102,6 +106,11 @@ bool Grantee::hasAnyPrivilegesOnDb(int32_t dbId, bool only_direct) const {
   return false;
 }
 
+/**
+ * @brief 递归给DBObject.objectKey_添加权限DBObject.objectPrivs_.
+ * 
+ * @param object 
+ */
 void Grantee::grantPrivileges(const DBObject& object) {
   auto* dbObject = findDbObject(object.getObjectKey(), false);
   if (!dbObject) {  // not found
@@ -172,6 +181,7 @@ void Grantee::grantRole(Role* role) {
     throw runtime_error("Role " + role->getName() + " have been granted to " + name_ +
                         " already.");
   }
+  // 防止递归树形成回环。
   checkCycles(role);
   roles_.insert(role);
   role->addGrantee(this);

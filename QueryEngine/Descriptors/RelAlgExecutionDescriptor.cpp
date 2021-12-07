@@ -244,6 +244,7 @@ RaExecutionSequence::RaExecutionSequence(const RelAlgNode* sink,
 
   graph_ = build_dag(sink);
 
+  // 对DAG进行拓扑排序，确定执行顺序。
   boost::topological_sort(graph_, std::back_inserter(ordering_));
   std::reverse(ordering_.begin(), ordering_.end());
 

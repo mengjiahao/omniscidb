@@ -17,6 +17,7 @@
 /**
  * @file		SqliteConnector.h
  * @author		Todd Mostak <todd@map-d.com>
+ * 
  */
 
 #ifndef SQLITE_CONNECTOR
@@ -29,6 +30,10 @@
 
 #include <sqlite3.h>
 
+/**
+ * @brief sqlite读写连接。
+ * 
+ */
 class SqliteConnector {
  public:
   SqliteConnector(const std::string& dbName, const std::string& dir = ".");
@@ -65,6 +70,7 @@ class SqliteConnector {
   T getData(const int row, const int col) {
     assert(row < static_cast<int>(numRows_));
     assert(col < static_cast<int>(numCols_));
+    // ResultSet使用列存模式。lexical_cast使用stringstream将string转为指定类型，有性能消耗。
     return boost::lexical_cast<T>(results_[col][row].result);
   }
 
@@ -74,6 +80,7 @@ class SqliteConnector {
     return results_[col][row].is_null;
   }
 
+  // ResultSet column def.
   std::vector<std::string> columnNames;  // make this public for easy access
   std::vector<int> columnTypes;
 
@@ -81,7 +88,7 @@ class SqliteConnector {
 
  private:
   struct NullableResult {
-    const std::string result;
+    const std::string result; // 值类型只有string.
     const bool is_null;
   };
 

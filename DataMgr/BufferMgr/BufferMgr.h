@@ -200,6 +200,7 @@ class BufferMgr : public AbstractBufferMgr {  // implements
   std::mutex buffer_id_mutex_;
   std::mutex global_mutex_;
 
+  // 通过ChunkKey索引Buffer。
   std::map<ChunkKey, BufferList::iterator> chunk_index_;
   size_t max_buffer_pool_num_pages_;  // max number of pages for buffer pool
   size_t num_pages_allocated_;
