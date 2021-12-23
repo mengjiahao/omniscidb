@@ -59,6 +59,8 @@ namespace Parser {
  * @type Node
  * @brief root super class for all nodes in a pre-Analyzer
  * parse tree.
+ * 
+ * 语法树节点.
  */
 class Node {
  public:
@@ -68,6 +70,8 @@ class Node {
 /*
  * @type SQLType
  * @brief class that captures type, predication and scale.
+ * 
+ * SQL列类型定义.
  */
 class SQLType : public Node, public ddl_utils::SqlType {
  public:

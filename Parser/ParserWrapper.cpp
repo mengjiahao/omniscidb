@@ -234,6 +234,7 @@ ParserWrapper::ParserWrapper(std::string query_string) {
                                  boost::regex::extended | boost::regex::icase};
         if (g_enable_calcite_ddl_parser &&
             boost::regex_match(query_string, grant_regex)) {
+          // 注意grant是用的calcite.
           is_calcite_ddl_ = true;
           is_legacy_ddl_ = false;
           return;

@@ -2,11 +2,14 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
 if(NOT MSVC)
 
+# 从 CMAKE_MODULE_PATH 找到 flex++ 与 bison++.
 find_package(Bisonpp REQUIRED)
 find_package(Flexpp REQUIRED)
 
+# bison目标文件
 set(BisonppOutput ${CMAKE_CURRENT_BINARY_DIR}/Parser_with_register.cpp)
 
+# bison parser.y. -d表示要生成头文件.
 add_custom_command(
     OUTPUT
       ${BisonppOutput}
@@ -22,6 +25,7 @@ add_custom_command(
 
 set(FlexppOutput ${CMAKE_CURRENT_BINARY_DIR}/Scanner_with_register.cpp)
 
+# flex scanner.l.
 add_custom_command(
     OUTPUT ${FlexppOutput}
     COMMAND ${Flexpp_EXECUTABLE}
@@ -44,6 +48,7 @@ set(ScannerPatched ${CMAKE_CURRENT_BINARY_DIR}/Scanner.cpp)
 
 if(MSVC)
 
+# FlexLexer.h -> FlexLexer_wnd.h, Scanner.cpp -> canner_wnd_pregen.cpp, Parser.cpp -> Parser_wnd_pregen.cpp, parser.h -> parser_wnd_pregen.h.
 file(CREATE_LINK ${CMAKE_CURRENT_SOURCE_DIR}/parser_wnd_pregen.h ${CMAKE_CURRENT_BINARY_DIR}/parser.h SYMBOLIC COPY_ON_ERROR)
 file(CREATE_LINK ${CMAKE_CURRENT_SOURCE_DIR}/Parser_wnd_pregen.cpp ${CMAKE_CURRENT_BINARY_DIR}/Parser.cpp SYMBOLIC COPY_ON_ERROR)
 file(CREATE_LINK ${CMAKE_CURRENT_SOURCE_DIR}/Scanner_wnd_pregen.cpp ${CMAKE_CURRENT_BINARY_DIR}/Scanner.cpp SYMBOLIC COPY_ON_ERROR)
@@ -51,6 +56,7 @@ file(CREATE_LINK ${CMAKE_CURRENT_SOURCE_DIR}/FlexLexer_wnd.h ${CMAKE_CURRENT_BIN
 
 else()
 
+# 将文件内 register 替换为 空，Parser_with_register 替换为 Parser. 
 add_custom_command(
     OUTPUT ${ParserPatched}
     COMMAND sed
@@ -61,6 +67,7 @@ add_custom_command(
     COMMENT "Patching Parser.cpp to remove register keyword"
 )
 
+# 将文件内 register 替换为 Scanner_with_register 替换为 Scanner. 
 add_custom_command(
     OUTPUT ${ScannerPatched}
     COMMAND sed

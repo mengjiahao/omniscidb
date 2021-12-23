@@ -1,9 +1,15 @@
+// flex将scanner.l转为Scanner_wnd_pregen.cpp.
+
+// 忽略大小写. 全局变量 yylineno有当前行号，scanner在EOF时不会调用yywrap(用于多文件解析).
 %option c++
 %option noyywrap case-insensitive yylineno
 
+// 状态转移.
 %Start STATE_CREATE STATE_CREATE_AS STATE_INSERT STATE_INSERT_INTO
 
 %{
+// c++声明，用于包含bison头文件, 从而flex与bison联合工作. 
+
 #undef yyFlexLexer
 #include <cstdint>
 #include <cstdio>
@@ -24,7 +30,8 @@ using namespace std;
 %%
 
 	/* literal keyword tokens */
-
+// 匹配规则是从上到下匹配. rule action用c语言描述. 
+ 
 ACCESS        TOK(ACCESS)
 ALL		{ yylval.qualval = kALL; TOK(ALL) }
 ALTER         TOK(ALTER)
@@ -33,6 +40,7 @@ AND           TOK(AND)
 ANY           { yylval.qualval = kANY; TOK(ANY) }
 ARCHIVE       TOK(ARCHIVE)
 ARRAY         TOK(ARRAY)
+// 使用状态匹配模式.
 <STATE_CREATE>AS    { BEGIN STATE_CREATE_AS; return SQLParser::AS; }
 AS            TOK(AS)
 ASC           TOK(ASC)
@@ -164,7 +172,7 @@ WITH          TOK(WITH)
 WORK          TOK(WORK)
 
 	/* punctuation */
-
+// 操作符标志存储在 yylval.opval.
 "="	{ yylval.opval = kEQ; TOK(EQUAL); }
 "<>" { yylval.opval = kNE; TOK(COMPARISON); }
 "<"	 { yylval.opval = kLT; TOK(COMPARISON); }
@@ -181,6 +189,7 @@ WORK          TOK(WORK)
 
 	/* names */
 [A-Za-z_][A-Za-z0-9\$_]*	{
+  // name加入到 SQLLexer.parsed_str_tokens_.
   yylval.stringval = TrackedPtr<std::string>::make(parsed_str_tokens_, yytext);
   TOK(NAME)
 }
@@ -199,6 +208,7 @@ WORK          TOK(WORK)
 -?[0-9]+ { yylval.intval = atoll(yytext); TOK(INTNUM) }
 -?[0-9]+"."[0-9]* |
 -?"."[0-9]*		{
+    // 将string类型复制再转为浮点数.
 		yylval.stringval = TrackedPtr<std::string>::make(parsed_str_tokens_, yytext);
     // numeric and decimal precisions cannot exceed 19
     if (yylval.stringval->get()->length() < 20) {
@@ -240,6 +250,7 @@ WORK          TOK(WORK)
     }
   }
 
+// insert into table select.
 <STATE_INSERT_INTO>[( ]*([Ss][Ee][Ll][Ee][Cc][Tt]).+/[;] {
     int len = yyleng;
     std::string tmp(yytext, len);
@@ -248,6 +259,7 @@ WORK          TOK(WORK)
     if (boost::regex_search(tmp, what, keyword)) {
       REJECT;
     } else {
+      // 匹配到insert into table values ();
       yylval.stringval = TrackedPtr<std::string>::make(parsed_str_tokens_, yytext, len);
       boost::trim(*yylval.stringval->get());
       BEGIN 0;
@@ -266,6 +278,7 @@ WORK          TOK(WORK)
 		return SQLParser::FWDSTR;
 	}
 
+// 解析'字符串'.
 '[^'\n]*' {
     int c = yyFlexLexer::yyinput();
 
@@ -311,11 +324,13 @@ WORK          TOK(WORK)
       return SQLParser::STRING;
     }
     else
+      // 连续多个'字符串1' '字符串2', 可拼接.
       yymore();
   }
 
 '[^'\n]*$	{	throw std::runtime_error("Unterminated string"); }
 
+// 解析"字符串".
 \"[^\"\n]*\" {
     int c = yyFlexLexer::yyinput();
 

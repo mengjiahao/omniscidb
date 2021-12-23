@@ -1,11 +1,14 @@
 #!/bin/bash
 
+# 一旦错误就停止脚本.
 set -e
+# 执行命令时显示参数.
 #set -x
 
 PREFIX=/usr/local/mapd-deps
 
 # Establish distro
+# source导入变量.
 source /etc/os-release
 if [ "$ID" == "ubuntu" ] ; then
   PACKAGER="apt -y"

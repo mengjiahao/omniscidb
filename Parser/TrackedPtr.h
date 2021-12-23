@@ -25,6 +25,8 @@ namespace Parser {
  * allocated within the parser.
  *
  * @tparam T - std::string or Node type
+ * 
+ * 通过unique_ptr来包装数据. 直接复制传递 TrackedPtr 不方便，因此使用 unique_ptr<TrackedPtr<T>>，方便通过move传递 (其实可内部实现函数传递，防止生成太多unique_ptr).
  */
 template <typename T>
 class TrackedPtr {
@@ -50,6 +52,8 @@ class TrackedPtr {
 
   /**
    * Returns a pointer to contained string or Node value.
+   * 
+   * 安全的访问值的方法. 可能值已经被delete.
    */
   T* get() {
     if (is_empty_) {
@@ -65,6 +69,8 @@ class TrackedPtr {
    * dynamically allocated objects.
    * @param args - Arguments to be used when creating contained string or Node values.
    * @return - pointer to created TrackedPtr
+   * 
+   * 将args转变为 TrackedPtr, 并加入到 tracked_ptrs.
    */
   template <typename... Args>
   static TrackedPtr<T>* make(std::vector<std::unique_ptr<TrackedPtr<T>>>& tracked_ptrs,
@@ -99,6 +105,12 @@ class TrackedPtr {
       , is_empty_(false)
       , is_released_(false) {}
 
+  /**
+   * @brief Construct a new Tracked Ptr object
+   * 
+   * @param str string类型会复制一份.
+   * @param len 
+   */
   TrackedPtr(const char* str, size_t len)
       : value_(std::make_unique<std::string>(str, len))
       , is_empty_(false)
@@ -165,6 +177,8 @@ class TrackedListPtr {
    * @param args - Arguments to be used when creating contained string or Node pointer
    * lists.
    * @return - pointer to created TrackedListPtr
+   * 
+   * 将args包装为1个TrackedListPtr，然后加入到tracked_ptrs.
    */
   template <typename... Args>
   static TrackedListPtr<T>* make(

@@ -24,8 +24,10 @@
 #ifndef SQLDEFS_H
 #define SQLDEFS_H
 
-// must not change the order without keeping the array in OperExpr::to_string
-// in sync.
+/** 定义operations标志符.
+ * must not change the order without keeping the array in OperExpr::to_string
+ * in sync.
+ */
 enum SQLOps {
   kEQ = 0,
   kBW_EQ,
@@ -68,6 +70,7 @@ enum SQLOps {
 
 enum SQLQualifier { kONE, kANY, kALL };
 
+/** 定义聚合操作标志符 */
 enum SQLAgg {
   kAVG,
   kMIN,
@@ -80,6 +83,7 @@ enum SQLAgg {
   kSINGLE_VALUE
 };
 
+/** 定义窗口函数标志符 */
 enum class SqlWindowFunctionKind {
   ROW_NUMBER,
   RANK,

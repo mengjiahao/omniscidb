@@ -7,6 +7,7 @@ set -x
 TSAN=false
 COMPRESS=false
 
+# 分析参数选项.
 while (( $# )); do
   case "$1" in
     --compress)
@@ -19,6 +20,7 @@ while (( $# )); do
       break
       ;;
   esac
+  # 参数移动.
   shift
 done
 
@@ -139,6 +141,8 @@ CFLAGS="-fPIC" download_make_install ftp://ftp.gnu.org/pub/gnu/ncurses/ncurses-6
 
 download_make_install ftp://ftp.gnu.org/gnu/bison/bison-3.4.2.tar.xz # "" "--build=powerpc64le-unknown-linux-gnu"
 
+# flexpp, bisonpp. 
+# http://flexcpp.sourceforge.net/flexc++.html, http://bisoncpp.sourceforge.net/bisonc++.html
 # https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/flexpp-bisonpp/bisonpp-1.21-45.tar.gz
 download_make_install ${HTTP_DEPS}/bisonpp-1.21-45.tar.gz bison++-1.21
 

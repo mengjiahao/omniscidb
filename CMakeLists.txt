@@ -78,6 +78,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# 定义怎么找到第三方库 CMAKE_MODULE_PATH. 
+# find_package 调用模块（咋不叫find_module?）有两种查找方式：Module模式（查找Find<PackageName>.cmake. 先找 CMAKE_MODULE_PATH, 再找 CMake自带Find模块）
+# 和 Config模式（查找<PackageName>Config.cmake或者<PackageName>-config.cmake. <prefix>/(lib/<arch>|lib*|share)/cmake/<name>*/等, prefix包含 CMAKE_PREFIX_PATH/<PackageName>_DIR/HINTS/PATH ).
+# 然后 find_package 获取 <NAME>_FOUND, <NAME>_INCLUDE_DIRS, <NAME>_LIBRARIES 等变量.
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
 add_custom_target(clean-all

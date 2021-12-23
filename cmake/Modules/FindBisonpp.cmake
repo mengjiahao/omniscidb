@@ -17,6 +17,7 @@
 #   Bisonpp_FOUND            - Set to TRUE if Bisonpp was found.
 #   Bisonpp_EXECUTABLE       - Path to the Bisonpp executable.
 
+# 找到可执行文件 bison++.
 find_program(Bisonpp_EXECUTABLE
   NAMES bison++
   PATHS

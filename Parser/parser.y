@@ -1,3 +1,6 @@
+// https://manpages.debian.org/unstable/bison++/bison++.1.en.html.
+
+// 定义Parser类. %name parser_name.
 %name Parser
 %define CLASS SQLParser
 %define LVAL yylval
@@ -10,7 +13,9 @@
                                   boost::regex::extended | boost::regex::icase};                                        \
     std::lock_guard<std::mutex> lock(mutex_);                                                                           \
     boost::smatch what;                                                                                                 \
-    const auto trimmed_input = boost::algorithm::trim_copy(inputStr);                                                   \
+    const auto trimmed_input = boost::algorithm::trim_copy(inputStr);   
+	
+	// create view as 语句识别.                                                \
     if (boost::regex_match(trimmed_input.cbegin(), trimmed_input.cend(), what, create_view_expr)) {                     \
       const bool if_not_exists = what[1].length() > 0;                                                                  \
       const auto view_name = what[2].str();                                                                             \
@@ -19,15 +24,19 @@
       return 0;                                                                                                         \
     }                                                                                                                   \
     std::istringstream ss(inputStr);                                                                                    \
-    lexer.switch_streams(&ss,0);                                                                                        \
+    lexer.switch_streams(&ss,0);  
+
+	// 注意这里是分析器入口. yyparse内部会调用yylex.                                                                                  \
     yyparse(parseTrees);                                                                                                \
-    lastParsed = lexer.YYText();                                                                                        \
+    
+	lastParsed = lexer.YYText();                                                                                        \
     if (!errors_.empty()) {                                                                                             \
       throw std::runtime_error(errors_[0]);                                                                             \
     }                                                                                                                   \
     return yynerrs;                                                                                                     \
   }                                                                                                                     \
- private:                                                                                                               \
+ private:     
+  // 就是lex词法分析器.                                                                                                          \
   SQLLexer lexer;                                                                                                       \
   std::mutex mutex_;                                                                                                    \
   std::vector<std::string> errors_;
@@ -35,6 +44,8 @@
 %define ERROR_BODY {} /*{ std::cerr << "Syntax error on line " << lexer.lineno() << ". Last word parsed: " << lexer.YYText() << std::endl; } */
 
 %header{
+// 与 %{ 功能一样，但是生成的代码在头文件与实现文件内都有.
+
 #include <cstdlib>
 #include <iostream>
 #include <fstream>
@@ -58,6 +69,8 @@ using namespace Parser;
 
 %}
 
+// 重新定义YYSTYPE yylval数据结构(默认是int), 名字是yy_'parser_name'_stype (YY_Parser_STYPE). 
+// 用于存储flex识别的标志对应的值，存入内容栈. yyvsp[0]是栈顶.
 %union {
 	bool boolval;
 	int64_t	intval;
@@ -72,12 +85,19 @@ using namespace Parser;
 }
 
 %header{
+	// https://ftp.gnu.org/old-gnu/Manuals/flex-2.5.4/html_node/flex_19.html.
+
+    // 主要是增加lex数据成员. 由于1个Parser只有1个lexer，因此可视为全局变量.
 	class SQLLexer : public yyFlexLexer {
 		public:
 			SQLLexer(YY_Parser_STYPE &lval) : yylval(lval) {};
+
 			YY_Parser_STYPE &yylval;
+			// 保存lex识别的单个标志符. 比如列名.
 			std::vector<std::unique_ptr<TrackedPtr<std::string>>> parsed_str_tokens_{};
+			// 保存多个标志符. 比如多个列名.
 			std::vector<std::unique_ptr<TrackedListPtr<std::string>>> parsed_str_list_tokens_{};
+			// 保存bison规约的单个Node. 
 			std::vector<std::unique_ptr<TrackedPtr<Node>>> parsed_node_tokens_{};
 			std::vector<std::unique_ptr<TrackedListPtr<Node>>> parsed_node_list_tokens_{};
 	};
@@ -92,6 +112,7 @@ using namespace Parser;
 %token INTNUM FIXEDNUM
 
 	/* operators */
+// 确定操作符的左结合性. 后列出的定义拥有更高的优先权.
 
 %left OR
 %left AND
@@ -102,6 +123,7 @@ using namespace Parser;
 %nonassoc UMINUS
 
 	/* literal keyword tokens */
+// %token定义终结符(对应SQLParser::name), %type可用于定义非终结符的值。会包含在bison编译后的头文件内，flex会包含此头文件并识别的标记，压入分析栈.
 
 %token ADD ALL ALTER AMMSC ANY ARCHIVE ARRAY AS ASC AUTHORIZATION BETWEEN BIGINT BOOLEAN BY
 %token CASE CAST CHAR_LENGTH CHARACTER CHECK CLOSE CLUSTER COLUMN COMMIT CONTINUE COPY CREATE CURRENT
@@ -114,10 +136,17 @@ using namespace Parser;
 %token PUBLIC REAL REFERENCES RENAME RESTORE REVOKE ROLE ROLLBACK SCHEMA SELECT SET SHARD SHARED SHOW
 %token UNIQUE UPDATE USER VALIDATE VALUES VIEW WHEN WHENEVER WHERE WITH WORK EDIT ACCESS DASHBOARD SQL EDITOR
 
+// 定义开始目标符号.
 %start sql_list
-
+ 
 %%
 
+// 语法规则部分. BNF文法. LR(1).
+// 先最长匹配原则 (移进-规约 冲突时先移进), 再最先匹配原则 (规约-规约冲突时，一般意味着文法有问题需修改，但是bison冒险匹配第一个). 
+// 栈式传递规约值.
+
+// 使用左递归模型. 右递归需要所有项都已经在栈中才可以规约.
+// 加入到语法树中.
 sql_list:
 		sql ';'	{ parseTrees.emplace_front(dynamic_cast<Stmt*>(($<nodeval>1)->release())); }
 	|	sql_list sql ';'
@@ -128,6 +157,7 @@ sql_list:
 
 
 	/* schema definition language */
+	// 定义DDL语句. 规约的都是 TrackedPtr<Node>* 指针.
 sql:		/* schema {	$<nodeval>$ = $<nodeval>1; } */
 	create_table_statement { $<nodeval>$ = $<nodeval>1; }
 	| drop_view_statement { $<nodeval>$ = $<nodeval>1; }
@@ -163,6 +193,7 @@ opt_temporary:
                 | /* empty */ { $<boolval>$ = false; }
                 ;
 
+// 定义create table语句 CreateTableStmt.
 create_table_statement:
 		CREATE opt_temporary TABLE opt_if_not_exists table '(' base_table_element_commalist ')' opt_with_option_list
 		{
@@ -241,6 +272,7 @@ alter_table_param_statement:
 	}
 	;
 
+// 多个列. 第1个是将column的Node值包装为1个TrackedListPtr；第2个是多个列则将column加入到 parsed_node_list_tokens_.
 base_table_element_commalist:
 		base_table_element { $<listval>$ = TrackedListPtr<Node>::make(lexer.parsed_node_list_tokens_, 1, $<nodeval>1); }
 	|	base_table_element_commalist ',' base_table_element
@@ -250,11 +282,13 @@ base_table_element_commalist:
 	}
 	;
 
+// 定义table的列或者加了约束的列.
 base_table_element:
 		column_def { $<nodeval>$ = $<nodeval>1; }
 	|	table_constraint_def { $<nodeval>$ = $<nodeval>1; }
 	;
 
+// 定义列，有列名+类型. 将列包装为 ColumnDef, 存入parsed_node_tokens_.
 column_def:
 		column data_type opt_compression
 		{	$<nodeval>$ = TrackedPtr<Node>::make(lexer.parsed_node_tokens_, new ColumnDef(($<stringval>1)->release(), dynamic_cast<SQLType*>(($<nodeval>2)->release()), dynamic_cast<CompressDef*>(($<nodeval>3)->release()), nullptr)); }
@@ -297,6 +331,7 @@ column_constraint_def:
 	|	REFERENCES table '(' column ')' { $<nodeval>$ = TrackedPtr<Node>::make(lexer.parsed_node_tokens_, new ColumnConstraintDef(($<stringval>2)->release(), ($<stringval>4)->release())); }
 	;
 
+// create table支持有SHARD KEY name等, 要包装为ShardKeyDef等，注意这里有string复制与释放.
 table_constraint_def:
 		UNIQUE '(' column_commalist ')'
 	{ $<nodeval>$ = TrackedPtr<Node>::make(lexer.parsed_node_tokens_, new UniqueDef(false, ($<slistval>3)->release())); }
@@ -737,6 +772,7 @@ array_at_exp : column_ref '[' scalar_exp ']'
 
 	/* scalar expressions */
 
+// %prec表示操作有相同优先级.
 scalar_exp:
 		scalar_exp '+' scalar_exp { $<nodeval>$ = TrackedPtr<Node>::make(lexer.parsed_node_tokens_, new OperExpr(kPLUS, dynamic_cast<Expr*>(($<nodeval>1)->release()), dynamic_cast<Expr*>(($<nodeval>3)->release()))); }
 	|	scalar_exp '-' scalar_exp { $<nodeval>$ = TrackedPtr<Node>::make(lexer.parsed_node_tokens_, new OperExpr(kMINUS, dynamic_cast<Expr*>(($<nodeval>1)->release()), dynamic_cast<Expr*>(($<nodeval>3)->release()))); }
@@ -942,7 +978,7 @@ non_neg_int: INTNUM
 	;
 
 	/* data types */
-
+// 将识别出的数据类型转为SQLType Node.
 data_type:
 		BIGINT { $<nodeval>$ = TrackedPtr<Node>::make(lexer.parsed_node_tokens_, new SQLType(kBIGINT)); }
 	|	TEXT { $<nodeval>$ = TrackedPtr<Node>::make(lexer.parsed_node_tokens_, new SQLType(kTEXT)); }
@@ -1008,6 +1044,7 @@ geometry_type:	GEOMETRY '(' geo_type ')'
 
 	/* the various things you can name */
 
+// 列名，保存为string. 可能带"xxx ".
 column:
 	NAME
 	{

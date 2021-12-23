@@ -19,6 +19,8 @@
 #include <set>
 #include <string>
 
+// omnisci关键字.
+
 static std::set<std::string> reserved_keywords{
 
     // OmniSci reserved keywords

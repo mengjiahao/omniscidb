@@ -20,6 +20,11 @@
 #include "Shared/sqltypes.h"
 
 namespace ddl_utils {
+
+/**
+ * @brief Encapsulates column definition type information.
+ * 
+ */
 class SqlType {
  public:
   /**
