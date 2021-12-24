@@ -1197,6 +1197,13 @@ std::unique_ptr<CustomExpression> Catalog::getCustomExpressionFromConnector(size
       is_deleted);
 }
 
+/**
+ * @brief 加入到cache tableDescriptorMap_/columnDescriptorMap_内.
+ * 
+ * @param td 
+ * @param columns 
+ * @param dicts 
+ */
 void Catalog::addTableToMap(const TableDescriptor* td,
                             const list<ColumnDescriptor>& columns,
                             const list<DictDescriptor>& dicts) {
@@ -2240,6 +2247,14 @@ int64_t get_next_refresh_time(const foreign_storage::ForeignTable& foreign_table
 }
 }  // namespace
 
+/**
+ * @brief 在sqlite表 mapd_tables/mapd_columns/mapd_views 加入表定义.
+ * 
+ * @param td 
+ * @param cols 
+ * @param shared_dict_defs 
+ * @param isLogicalTable 
+ */
 void Catalog::createTable(
     TableDescriptor& td,
     const list<ColumnDescriptor>& cols,

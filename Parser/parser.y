@@ -10,7 +10,8 @@
   int parse(const std::string & inputStrOrig, std::list<std::unique_ptr<Stmt>>& parseTrees, std::string &lastParsed) {  \
     auto inputStr = boost::algorithm::trim_right_copy_if(inputStrOrig, boost::is_any_of(";") || boost::is_space()) + ";"; \
     boost::regex create_view_expr{R"(CREATE\s+VIEW\s+(IF\s+NOT\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9\$_]*)\s+AS\s+(.*);?)", \
-                                  boost::regex::extended | boost::regex::icase};                                        \
+                                  boost::regex::extended | boost::regex::icase};  
+    // 上了DDL锁.                                      \
     std::lock_guard<std::mutex> lock(mutex_);                                                                           \
     boost::smatch what;                                                                                                 \
     const auto trimmed_input = boost::algorithm::trim_copy(inputStr);   
@@ -188,11 +189,17 @@ opt_if_not_exists:
 		| /* empty */ { $<boolval>$ = false; }
 		;
 
+// [TEMPORARY].
 opt_temporary:
                 TEMPORARY { $<boolval>$ = true; }
                 | /* empty */ { $<boolval>$ = false; }
                 ;
 
+// CREATE [TEMPORARY] TABLE [IF NOT EXISTS] <table>
+//  (<column> <type> [NOT NULL] [DEFAULT <value>] [ENCODING <encodingSpec>],
+//  [SHARD KEY (<column>)],
+//  [SHARED DICTIONARY (<column>) REFERENCES <table>(<column>)], ...)
+//  [WITH (<property> = value, ...)];
 // 定义create table语句 CreateTableStmt.
 create_table_statement:
 		CREATE opt_temporary TABLE opt_if_not_exists table '(' base_table_element_commalist ')' opt_with_option_list
@@ -205,6 +212,7 @@ create_table_statement:
 		}
 	;
 
+// [IF NOT EXISTS].
 opt_if_exists:
 		IF EXISTS { $<boolval>$ = true; }
 		| /* empty */ { $<boolval>$ = false; }
@@ -272,6 +280,9 @@ alter_table_param_statement:
 	}
 	;
 
+//  (<column> <type> [NOT NULL] [DEFAULT <value>] [ENCODING <encodingSpec>],
+//  [SHARD KEY (<column>)],
+//  [SHARED DICTIONARY (<column>) REFERENCES <table>(<column>)], ...)
 // 多个列. 第1个是将column的Node值包装为1个TrackedListPtr；第2个是多个列则将column加入到 parsed_node_list_tokens_.
 base_table_element_commalist:
 		base_table_element { $<listval>$ = TrackedListPtr<Node>::make(lexer.parsed_node_list_tokens_, 1, $<nodeval>1); }
@@ -288,6 +299,7 @@ base_table_element:
 	|	table_constraint_def { $<nodeval>$ = $<nodeval>1; }
 	;
 
+// <column> <type> [NOT NULL] [DEFAULT <value>] [ENCODING <encodingSpec>].
 // 定义列，有列名+类型. 将列包装为 ColumnDef, 存入parsed_node_tokens_.
 column_def:
 		column data_type opt_compression
@@ -296,6 +308,7 @@ column_def:
 		{ $<nodeval>$ = TrackedPtr<Node>::make(lexer.parsed_node_tokens_, new ColumnDef(($<stringval>1)->release(), dynamic_cast<SQLType*>(($<nodeval>2)->release()), dynamic_cast<CompressDef*>(($<nodeval>4)->release()), dynamic_cast<ColumnConstraintDef*>(($<nodeval>3)->release()))); }
 	;
 
+// [ENCODING <encodingSpec>].
 opt_compression:
 		 NAME NAME
 		{
@@ -314,6 +327,7 @@ opt_compression:
 		| /* empty */ { $<nodeval>$ = TrackedPtr<Node>::makeEmpty(); }
 		;
 
+// [NOT NULL] [DEFAULT <value>]
 column_constraint_def:
 		NOT NULLX { $<nodeval>$ = TrackedPtr<Node>::make(lexer.parsed_node_tokens_, new ColumnConstraintDef(true, false, false, nullptr)); }
 	|	NOT NULLX UNIQUE { $<nodeval>$ = TrackedPtr<Node>::make(lexer.parsed_node_tokens_, new ColumnConstraintDef(true, true, false, nullptr)); }
@@ -331,6 +345,7 @@ column_constraint_def:
 	|	REFERENCES table '(' column ')' { $<nodeval>$ = TrackedPtr<Node>::make(lexer.parsed_node_tokens_, new ColumnConstraintDef(($<stringval>2)->release(), ($<stringval>4)->release())); }
 	;
 
+// [SHARD KEY (<column>)], [SHARED DICTIONARY (<column>) REFERENCES <table>(<column>)]
 // create table支持有SHARD KEY name等, 要包装为ShardKeyDef等，注意这里有string复制与释放.
 table_constraint_def:
 		UNIQUE '(' column_commalist ')'
@@ -382,6 +397,7 @@ column_commalist:
 	}
 	;
 
+// [WITH (<property> = value, ...)].
 opt_with_option_list:
 		WITH '(' name_eq_value_list ')'
 		{ $<listval>$ = $<listval>3; }

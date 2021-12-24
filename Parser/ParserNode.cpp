@@ -2554,6 +2554,7 @@ void CreateTableStmt::executeDryRun(const Catalog_Namespace::SessionInfo& sessio
     if (!dynamic_cast<ColumnDef*>(e.get())) {
       throw std::runtime_error("Table constraints are not supported yet.");
     }
+    // 将语法树内的列节点 ColumnDef -> ColumnDescriptor.
     ColumnDef* coldef = static_cast<ColumnDef*>(e.get());
     ColumnDescriptor cd;
     cd.columnName = *coldef->get_column_name();
@@ -2562,6 +2563,7 @@ void CreateTableStmt::executeDryRun(const Catalog_Namespace::SessionInfo& sessio
     columns.push_back(cd);
   }
 
+  // 填充 TableDescriptor.
   ddl_utils::set_default_table_attributes(*table_, td, columns.size());
 
   if (shard_key_def) {
