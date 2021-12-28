@@ -318,6 +318,7 @@ DdlCommandExecutor::DdlCommandExecutor(
   // parse the incoming query,
   //    cache the parsed rapidjson object inside a DdlCommandDataImpl
   //    store the "abstract/base class" reference in ddl_data_
+  // 解析从calcite parser获取的DDL返回值.
   DdlCommandDataImpl* ddl_query_data = new DdlCommandDataImpl(ddl_statement);
   ddl_data_ = std::unique_ptr<DdlCommandData>(ddl_query_data);
 
@@ -332,6 +333,11 @@ DdlCommandExecutor::DdlCommandExecutor(
   ddl_command_ = payload["command"].GetString();
 }
 
+/**
+ * @brief 同样将Parser的结果转换为Stmt(如CreateTableStmt/GrantRoleStmt)等，然后执行Stmt.execute().
+ * 
+ * @return ExecutionResult 
+ */
 ExecutionResult DdlCommandExecutor::execute() {
   ExecutionResult result;
 

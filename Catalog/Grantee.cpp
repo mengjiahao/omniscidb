@@ -26,6 +26,7 @@ using std::string;
 Grantee::Grantee(const std::string& name) : name_(name) {}
 
 Grantee::~Grantee() {
+  // 解绑role与grantee父子关系.
   for (auto role : roles_) {
     role->removeGrantee(this);
   }
@@ -35,7 +36,7 @@ Grantee::~Grantee() {
 }
 
 /**
- * @brief 递归获取所有Role。
+ * @brief 递归获取树中所有roles。
  * 
  */
 std::vector<std::string> Grantee::getRoles(bool only_direct) const {
@@ -86,6 +87,13 @@ void Grantee::getPrivileges(DBObject& object, bool only_direct) {
   object.grantPrivileges(*dbObject);
 }
 
+/**
+ * @brief 在 effectivePrivileges_/directPrivileges_ 查找object权限.
+ * 
+ * @param objectKey 
+ * @param only_direct 
+ * @return DBObject* 
+ */
 DBObject* Grantee::findDbObject(const DBObjectKey& objectKey, bool only_direct) const {
   const DBObjectMap& privs = only_direct ? directPrivileges_ : effectivePrivileges_;
   DBObject* dbObject = nullptr;
@@ -107,7 +115,8 @@ bool Grantee::hasAnyPrivilegesOnDb(int32_t dbId, bool only_direct) const {
 }
 
 /**
- * @brief 递归给DBObject.objectKey_添加权限DBObject.objectPrivs_.
+ * @brief 给 effectivePrivileges_/directPrivileges_ 添加权限 DBObject.objectPrivs_.
+ * GRANT <privilegeList> ON TABLE <tableName> TO <entityList(User/Role)>;
  * 
  * @param object 
  */
@@ -169,8 +178,13 @@ DBObject* Grantee::revokePrivileges(const DBObject& object) {
   return object_removed ? nullptr : dbObject;
 }
 
+/**
+ * @brief 将role权限赋予给Grantee。
+ * GRANT <roleNames> TO <userNames>, <roleNames>;
+ */
 void Grantee::grantRole(Role* role) {
   bool found = false;
+  // 如果存在role就退出.
   for (const auto* granted_role : roles_) {
     if (role == granted_role) {
       found = true;
@@ -183,8 +197,10 @@ void Grantee::grantRole(Role* role) {
   }
   // 防止递归树形成回环。
   checkCycles(role);
+  // 将role添加到树中。
   roles_.insert(role);
   role->addGrantee(this);
+  // 虚函数实现，传播权限更新.
   updatePrivileges();
 }
 
@@ -262,6 +278,11 @@ bool Grantee::checkPrivileges(const DBObject& objectRequested) const {
   return false;
 }
 
+/**
+ * @brief 将Role的effectivePrivileges_全部添加到effectivePrivileges_.
+ * 
+ * @param role 
+ */
 void Grantee::updatePrivileges(Role* role) {
   for (auto& roleDbObject : *role->getDbObjects(false)) {
     auto dbObject = findDbObject(roleDbObject.first, false);
@@ -274,16 +295,22 @@ void Grantee::updatePrivileges(Role* role) {
   }
 }
 
-// Pull privileges from upper roles
+/**
+ * 重新将 directPrivileges_ 与 上游roles 权限更新到 effectivePrivileges_.
+ * Pull privileges from upper roles  
+ */
 void Grantee::updatePrivileges() {
+  // 清除 effectivePrivileges_ 所有权限.
   for (auto& dbObject : effectivePrivileges_) {
     dbObject.second->resetPrivileges();
   }
+  // 将直接权限 directPrivileges_ 添加到 effectivePrivileges_.
   for (auto it = directPrivileges_.begin(); it != directPrivileges_.end(); ++it) {
     if (effectivePrivileges_.find(it->first) != effectivePrivileges_.end()) {
       effectivePrivileges_[it->first]->updatePrivileges(*it->second);
     }
   }
+  // 将所有roles_权限更新到 effectivePrivileges_.
   for (auto role : roles_) {
     if (role->getDbObjects(false)->size() > 0) {
       updatePrivileges(role);
@@ -291,6 +318,7 @@ void Grantee::updatePrivileges() {
   }
   for (auto dbObjectIt = effectivePrivileges_.begin();
        dbObjectIt != effectivePrivileges_.end();) {
+    // 清除空的权限.
     if (!dbObjectIt->second->getPrivileges().hasAny()) {
       dbObjectIt = effectivePrivileges_.erase(dbObjectIt);
     } else {
@@ -313,6 +341,11 @@ void Grantee::revokeAllOnDatabase(int32_t dbId) {
   updatePrivileges();
 }
 
+/**
+ * @brief bfs查找检测回环.
+ * 
+ * @param newRole 
+ */
 void Grantee::checkCycles(Role* newRole) {
   std::stack<Grantee*> grantees;
   grantees.push(this);
@@ -320,8 +353,10 @@ void Grantee::checkCycles(Role* newRole) {
     auto* grantee = grantees.top();
     grantees.pop();
     if (!grantee->isUser()) {
+      // 将grantee转换为role，遍历role的下游grantees.
       Role* r = dynamic_cast<Role*>(grantee);
       CHECK(r);
+      // 下游子树不应该有上游出现的role.
       if (r == newRole) {
         throw runtime_error("Granting role " + newRole->getName() + " to " + getName() +
                             " creates cycle in grantee graph.");
@@ -374,6 +409,11 @@ Role::~Role() {
   grantees_.clear();
 }
 
+/**
+ * @brief 将 Grantee 作为 Role 下游节点. 注意不更新权限.
+ * 
+ * @param grantee 
+ */
 void Role::addGrantee(Grantee* grantee) {
   if (grantees_.find(grantee) == grantees_.end()) {
     grantees_.insert(grantee);
@@ -407,9 +447,15 @@ void Role::revokeAllOnDatabase(int32_t dbId) {
   }
 }
 
-// Pull privileges from upper roles and push those to grantees
+/**
+ * @brief 更新本节点权限，并传播权限到下游的grantess.
+ * Pull privileges from upper roles and push those to grantees
+ * 
+ */
 void Role::updatePrivileges() {
+  // 更新本节点role权限.
   Grantee::updatePrivileges();
+  // 传递role权限到下游 grantee.
   for (auto grantee : grantees_) {
     grantee->updatePrivileges();
   }

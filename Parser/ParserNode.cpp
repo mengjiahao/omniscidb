@@ -2508,6 +2508,11 @@ void parse_elements(const rapidjson::Value& payload,
 }
 }  // namespace
 
+/**
+ * @brief 将json (Calcite传来的)解析为CreateTableStmt.
+ * 
+ * @param payload 
+ */
 CreateTableStmt::CreateTableStmt(const rapidjson::Value& payload) {
   CHECK(payload.HasMember("name"));
   table_ = std::make_unique<std::string>(json_str(payload["name"]));

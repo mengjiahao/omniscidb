@@ -67,7 +67,7 @@ class read_lock {
 
 /**
  * @brief 
- * 意思是 先 rlock sharedMutex_ wlock sqliteMutex_. 
+ * 意思是 先 rlock sharedMutex_ 再 wlock sqliteMutex_. 
  * 读锁先加，如果同时有多个读锁成功，unlock后是其他有读锁的线程开始lock_catalog，这样比写锁优先级高。
  */
 template <typename T>

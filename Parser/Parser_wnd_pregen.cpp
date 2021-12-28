@@ -2739,6 +2739,7 @@ YY_Parser_PARSE_PARAM_DEF
     case 47:
 
     {
+      // 注意栈中顺序是参数顺序的逆序.
       yyval.nodeval = TrackedPtr<Node>::make(
           lexer.parsed_node_tokens_,
           new CreateTableStmt(
@@ -5256,8 +5257,8 @@ YY_Parser_PARSE_PARAM_DEF
       ;
       break;
     }
-    case 352:
-
+    case 352:  // 解析column. 从栈顶yyvsp取出值赋值给yyval.
+    
     {
       const auto uc_col_name =
           boost::to_upper_copy<std::string>(*(yyvsp[0].stringval)->get());

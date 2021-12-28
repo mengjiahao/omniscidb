@@ -495,7 +495,7 @@ void QueryRunner::runDDLStatement(const std::string& stmt_str_in) {
   auto stdlog = STDLOG(query_state);
 
   if (pw.isCalciteDdl()) {
-    // 调用 Calcite 分析RBAC语句.
+    // 调用 Calcite 分析DDL句(RBAC语).
     const auto& cat = session_info_->getCatalog();
     auto calcite_mgr = cat.getCalciteMgr();
     const auto query_ra = calcite_mgr

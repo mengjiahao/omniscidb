@@ -177,9 +177,9 @@ std::vector<std::string> DBObject::toString() const {
   }
   return objectKey;
 }
+
 /**
- * @brief 从SysCatalog数据库加载数据到DBObject。
- * 
+ * @brief 从当前Catalog读取元数据到DBObject。
  */
 void DBObject::loadKey() {
   CHECK(objectType_ == DatabaseDBObjectType);
@@ -196,6 +196,9 @@ void DBObject::loadKey() {
   }
 }
 
+/**
+ * @brief 从当前Catalog（CurrentDB）读取元数据key。
+ */
 void DBObject::loadKey(const Catalog_Namespace::Catalog& catalog) {
   switch (objectType_) {
     case DatabaseDBObjectType: {

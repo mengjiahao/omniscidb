@@ -30,8 +30,14 @@ class User;
 class Role;
 
 /**
- * @brief 父类Grantee有多个Role，Role可能有多个Grantee，因此权限是个递归树。
+ * @brief 父类Grantee有多个Role，每个Role可能又有多个Grantee，因此权限是个递归树。
  * 
+ * many-to-many relationships: Objects and roles, Objects and users, Roles and users.
+ * Each object privilege can be granted to one or many roles, or to one or many users.
+ * Granting object privileges to roles and users, and granting roles to users, has a cumulative effect. 
+ * The result of several grant commands is a combination of all individual grant commands. 
+ * This applies to all database object types and to privileges inherited by object.
+ * For example, object privileges granted to the object of database type are propagated to all table-type objects of that database object.
  */
 class Grantee {
   using DBObjectMap = std::map<DBObjectKey, std::unique_ptr<DBObject>>;
@@ -69,14 +75,18 @@ class Grantee {
 
  protected:
   std::string name_;
-  // Grantee 跟踪有多个角色。
+  // 父节点指针. grant role to grantee, 表示 roles_ 是 grantee的上游, role权限有更新会传递到 grantee, grantee拥有roles所有权限.
   std::unordered_set<Role*> roles_;
-  // tracks all privileges, including privileges from granted roles recursively
+  // 所有权限. tracks all privileges, including privileges from granted roles recursively
   DBObjectMap effectivePrivileges_;
-  // tracks only privileges granted directly to this grantee
+  // 此节点的直接权限. tracks only privileges granted directly to this grantee
   DBObjectMap directPrivileges_;
 };
 
+/**
+ * @brief A user can be granted one or many roles. 只能将 role权限给user，不能grant user to role.
+ * 
+ */
 class User : public Grantee {
  public:
   User(const std::string& name) : Grantee(name) {}
@@ -85,7 +95,8 @@ class User : public Grantee {
 
 /**
  * @brief Role可能有多个Grantee。
- * 
+ * A role and/or user can be granted privileges on one or many objects.
+ * A role can be granted to one or many users or other roles.
  */
 class Role : public Grantee {
  public:
@@ -96,7 +107,7 @@ class Role : public Grantee {
   void updatePrivileges() override;
   void renameDbObject(const DBObject& object) override;
 
-  // NOTE(max): To be used only from Grantee
+  // NOTE(max): To be used only from Grantee. Grantee使用其组成权限树.
   virtual void addGrantee(Grantee* grantee);
   virtual void removeGrantee(Grantee* grantee);
 
@@ -104,6 +115,7 @@ class Role : public Grantee {
   std::vector<Grantee*> getGrantees() const;
 
  private:
+  // 子节点指针. 这个用于传递role权限到下游的 grantees_, 下游grantees_ 拥有role的权限, 但是上游 role没有grantee的所有权限.
   std::unordered_set<Grantee*> grantees_;
 };
 

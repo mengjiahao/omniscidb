@@ -28,7 +28,6 @@
  * @brief specifies the content in-memory of a row in the column metadata table
  *
  */
-
 struct ColumnDescriptor {
   int tableId;
   int columnId;

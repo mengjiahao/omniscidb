@@ -57,9 +57,16 @@ void SqliteConnector::throwError() {
   throw runtime_error("Sqlite3 Error: " + errorMsg);
 }
 
+/**
+ * @brief Get the column datum object. sqlite内只存string类型.
+ * 
+ * @param column_type 
+ * @param stmt 
+ * @param column_index 
+ * @return std::string 
+ */
 std::string get_column_datum(int column_type, sqlite3_stmt* stmt, size_t column_index) {
   const char* datum_ptr;
-  // sqlite内只存string类型。
   if (column_type == SQLITE_BLOB) {
     datum_ptr = static_cast<const char*>(sqlite3_column_blob(stmt, column_index));
   } else {

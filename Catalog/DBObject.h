@@ -39,6 +39,7 @@ class Catalog;
 
 // DB objects for which privileges are currently supported, only ever add enums, never
 // remove as the nums are persisted in the catalog DB
+// 有一部分权限层级?
 enum DBObjectType {
   AbstractDBObjectType = 0,
   DatabaseDBObjectType,
@@ -242,6 +243,9 @@ class DBObject {
   void resetPrivileges() { objectPrivs_.reset(); }
   void copyPrivileges(const DBObject& object);
   void updatePrivileges(const DBObject& object);
+  /**
+   * @brief 在 AccessPrivileges 上增加权限 object.objectPrivs_.privileges.
+   */
   void grantPrivileges(const DBObject& object) { updatePrivileges(object); }
   void revokePrivileges(const DBObject& object);
   void setPermissionType(const DBObjectType& permissionType);

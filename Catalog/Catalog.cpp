@@ -196,6 +196,10 @@ Catalog::Catalog(const string& basePath,
 
 Catalog::Catalog() {}
 
+/**
+ * @brief 释放 TableDescriptorMap 与 ColumnDescriptorMap.
+ * 
+ */
 Catalog::~Catalog() {
   cat_write_lock write_lock(this);
   // must clean up heap-allocated TableDescriptor and ColumnDescriptor structs
@@ -229,6 +233,10 @@ const Catalog* Catalog::getObjForLock() {
   }
 }
 
+/**
+ * @brief 给 mapd_tables 增加列定义.
+ * 
+ */
 void Catalog::updateTableDescriptorSchema() {
   cat_sqlite_lock sqlite_lock(getObjForLock());
   sqliteConnector_.query("BEGIN TRANSACTION");
@@ -490,6 +498,10 @@ void Catalog::updatePageSize() {
   sqliteConnector_.query("END TRANSACTION");
 }
 
+/**
+ * @brief 给 mapd_columns 增加 version_num.
+ * 
+ */
 void Catalog::updateDeletedColumnIndicator() {
   cat_sqlite_lock sqlite_lock(getObjForLock());
   sqliteConnector_.query("BEGIN TRANSACTION");
@@ -517,6 +529,10 @@ void Catalog::updateDeletedColumnIndicator() {
   sqliteConnector_.query("END TRANSACTION");
 }
 
+/**
+ * @brief 给 mapd_columns 增加 default values.
+ * 
+ */
 void Catalog::updateDefaultColumnValues() {
   cat_sqlite_lock sqlite_lock(getObjForLock());
   sqliteConnector_.query("BEGIN TRANSACTION");
@@ -607,11 +623,14 @@ void Catalog::updateLogicalToPhysicalTableLinkSchema() {
   sqliteConnector_.query("END TRANSACTION");
 }
 
+/**
+ * @brief 通过 logicalToPhysicalTableMapById_ 更新 mapd_logical_to_physical.
+ * this proc inserts/updates all pairs of (logical_tb_id, physical_tb_id) in
+ * sqlite mapd_logical_to_physical table for given logical_tb_id as needed
+ * 
+ * @param logical_tb_id 
+ */
 void Catalog::updateLogicalToPhysicalTableMap(const int32_t logical_tb_id) {
-  /* this proc inserts/updates all pairs of (logical_tb_id, physical_tb_id) in
-   * sqlite mapd_logical_to_physical table for given logical_tb_id as needed
-   */
-
   cat_sqlite_lock sqlite_lock(getObjForLock());
   sqliteConnector_.query("BEGIN TRANSACTION");
   try {
@@ -948,6 +967,11 @@ std::string getUserFromId(const int32_t id) {
 }
 }  // namespace
 
+
+/**
+ * @brief 从 mapd_dictionaries/mapd_tables/mapd_columns/mapd_logical_to_physical 加载数据初始化 DescriptorMap.
+ * 
+ */
 void Catalog::buildMaps() {
   cat_write_lock write_lock(this);
   cat_sqlite_lock sqlite_lock(getObjForLock());
@@ -1198,7 +1222,7 @@ std::unique_ptr<CustomExpression> Catalog::getCustomExpressionFromConnector(size
 }
 
 /**
- * @brief 加入到cache tableDescriptorMap_/columnDescriptorMap_内.
+ * @brief 将Descriptor加入到cache tableDescriptorMap_/columnDescriptorMap_内.
  * 
  * @param td 
  * @param columns 
@@ -1495,6 +1519,13 @@ const foreign_storage::ForeignTable* Catalog::getForeignTable(
   return getForeignTableUnlocked(tableName);
 }
 
+/**
+ * @brief 从 tableDescriptorMap_ 取出 TableDescriptor.
+ * 
+ * @param tableName 
+ * @param populateFragmenter 
+ * @return const TableDescriptor* 
+ */
 const TableDescriptor* Catalog::getMetadataForTable(const string& tableName,
                                                     const bool populateFragmenter) const {
   // we give option not to populate fragmenter (default true/yes) as it can be heavy for
@@ -1594,6 +1625,13 @@ const ColumnDescriptor* Catalog::getMetadataForColumn(int tableId,
   return colDescIt->second;
 }
 
+/**
+ * @brief 从 columnDescriptorMapById_ 取出 ColumnDescriptor.
+ * 
+ * @param table_id 
+ * @param column_id 
+ * @return const ColumnDescriptor* 
+ */
 const ColumnDescriptor* Catalog::getMetadataForColumn(int table_id, int column_id) const {
   cat_read_lock read_lock(this);
   ColumnIdKey columnIdKey(table_id, column_id);
@@ -2248,7 +2286,7 @@ int64_t get_next_refresh_time(const foreign_storage::ForeignTable& foreign_table
 }  // namespace
 
 /**
- * @brief 在sqlite表 mapd_tables/mapd_columns/mapd_views 加入表定义.
+ * @brief 在sqlite表 mapd_tables/mapd_columns/mapd_views 加入表定义, 并加入到 DescriptorMap.
  * 
  * @param td 
  * @param cols 
@@ -2314,9 +2352,11 @@ void Catalog::createTable(
 
   td.nColumns = columns.size();
   cat_sqlite_lock sqlite_lock(getObjForLock());
+  // 注意这里开启的是sqlite事务.
   sqliteConnector_.query("BEGIN TRANSACTION");
   if (td.persistenceLevel == Data_Namespace::MemoryLevel::DISK_LEVEL) {
     try {
+      // 注意这里将参数都转为了string.
       sqliteConnector_.query_with_text_params(
           R"(INSERT INTO mapd_tables (name, userid, ncolumns, isview, fragments, frag_type, max_frag_rows, max_chunk_size, frag_page_size, max_rows, partitions, shard_column_id, shard, num_shards, sort_column_id, storage_type, max_rollback_epochs, is_system_table, key_metainfo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?))",
           std::vector<std::string>{td.tableName,
@@ -2475,6 +2515,7 @@ void Catalog::createTable(
              "delete or clear cache before continuing";
     }
 
+    // 加入到 DescriptorMap.
     addTableToMap(&td, cds, dds);
     calciteMgr_->updateMetadata(currentDB_.dbName, td.tableName);
     if (!td.storageType.empty() && td.storageType != StorageType::FOREIGN_TABLE) {
@@ -5399,6 +5440,10 @@ void Catalog::restoreOldOwnersInMemory(
   }
 }
 
+/**
+ * @brief 初始化生成sqllite表.
+ * 
+ */
 void Catalog::conditionallyInitializeSystemTables() {
   if (g_enable_system_tables && name() == INFORMATION_SCHEMA_DB) {
     createSystemTableServer(CATALOG_SERVER_NAME,
@@ -5407,6 +5452,8 @@ void Catalog::conditionallyInitializeSystemTables() {
                             foreign_storage::DataWrapperType::INTERNAL_MEMORY_STATS);
     createSystemTableServer(STORAGE_STATS_SERVER_NAME,
                             foreign_storage::DataWrapperType::INTERNAL_STORAGE_STATS);
+                            
+    // mapd_users                        
     if (!getMetadataForTable(USERS_SYS_TABLE_NAME, false)) {
       createSystemTable(USERS_SYS_TABLE_NAME,
                         CATALOG_SERVER_NAME,
@@ -5417,6 +5464,7 @@ void Catalog::conditionallyInitializeSystemTables() {
                          {"can_login", {kBOOLEAN}}});
     }
 
+    // mapd_databases     
     if (!getMetadataForTable(DATABASES_SYS_TABLE_NAME, false)) {
       createSystemTable(
           DATABASES_SYS_TABLE_NAME,
@@ -5424,6 +5472,7 @@ void Catalog::conditionallyInitializeSystemTables() {
           {{"database_id", {kINT}}, {"database_name", {kTEXT}}, {"owner_id", {kINT}}});
     }
 
+    // mapd_object_permissions    
     if (!getMetadataForTable(PERMISSIONS_SYS_TABLE_NAME, false)) {
       createSystemTable(
           PERMISSIONS_SYS_TABLE_NAME,
@@ -5443,6 +5492,7 @@ void Catalog::conditionallyInitializeSystemTables() {
           ROLES_SYS_TABLE_NAME, CATALOG_SERVER_NAME, {{"role_name", {kTEXT}}});
     }
 
+    // mapd_tables
     if (!getMetadataForTable(TABLES_SYS_TABLE_NAME, false)) {
       createSystemTable(TABLES_SYS_TABLE_NAME,
                         CATALOG_SERVER_NAME,
@@ -5471,6 +5521,7 @@ void Catalog::conditionallyInitializeSystemTables() {
                          {"last_updated_at", {kTIMESTAMP}}});
     }
 
+    // mapd_roles
     if (!getMetadataForTable(ROLE_ASSIGNMENTS_SYS_TABLE_NAME, false)) {
       createSystemTable(ROLE_ASSIGNMENTS_SYS_TABLE_NAME,
                         CATALOG_SERVER_NAME,

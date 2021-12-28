@@ -15,7 +15,7 @@
 -->
 
 
-
+// 语法与bison类似.
 
 SqlNodeList DropColumnNodeList() :
 {

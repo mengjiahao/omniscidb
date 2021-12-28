@@ -428,6 +428,7 @@ extern YY_Parser_STYPE YY_Parser_LVAL;
 #endif
 #endif
 
+// 重新定义Parser类 YY_Parser_CLASS.
 class YY_Parser_CLASS YY_Parser_INHERIT {
  public:
 #if YY_Parser_USE_CONST_TOKEN != 0
